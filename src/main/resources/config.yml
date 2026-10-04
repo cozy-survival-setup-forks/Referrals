@@ -7,6 +7,10 @@ command-aliases: []
 # How new a player must be to be referred: minutes of playtime on the server.
 max-playtime-minutes: 5
 
+# How long a player must have played before they can refer anyone: minutes of playtime. This stops a new account
+# from referring its own second account. 0 means no minimum.
+min-referrer-playtime-minutes: 30
+
 # Seconds the new player has to accept a request.
 request-seconds: 120
 

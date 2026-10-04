@@ -62,7 +62,6 @@ final class Requests {
     /** A player left: their requests, and the requests for them, are gone. */
     void forget(UUID player) {
         byTarget.remove(player);
-        lastSent.remove(player);
         Iterator<Map<UUID, Long>> each = byTarget.values().iterator();
         while (each.hasNext()) {
             Map<UUID, Long> pending = each.next();

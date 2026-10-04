@@ -9,6 +9,7 @@ import java.util.List;
 final class Settings {
 
     final long maxPlayedTicks;
+    final long minReferrerTicks;
     final long requestMillis;
     final long cooldownMillis;
     final int maxPending;
@@ -20,6 +21,7 @@ final class Settings {
 
     Settings(FileConfiguration config) {
         maxPlayedTicks = Math.max(1, Math.min(config.getLong("max-playtime-minutes", 5), 60L * 24 * 365)) * 60L * 20L;
+        minReferrerTicks = Math.max(0, Math.min(config.getLong("min-referrer-playtime-minutes", 30), 60L * 24 * 365)) * 60L * 20L;
         requestMillis = Math.max(5, Math.min(config.getLong("request-seconds", 120), 86_400L)) * 1000L;
         cooldownMillis = Math.max(0, Math.min(config.getLong("send-cooldown-seconds", 10), 3600L)) * 1000L;
         maxPending = Math.max(1, Math.min(config.getInt("max-pending-requests", 5), 100));

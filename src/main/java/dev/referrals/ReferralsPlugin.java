@@ -54,7 +54,11 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
         saveDefaultConfig();
         settings = new Settings(getConfig());
         messages = new Messages(this);
-        messages.load();
+        if (!messages.load()) {
+            getLogger().severe("messages.yml is broken, disabling Referrals. Fix the file, or delete it to get the default one.");
+            Bukkit.getPluginManager().disablePlugin(this);
+            return;
+        }
 
         store = new Store(new File(getDataFolder(), "data.yml"));
         try {
@@ -171,13 +175,18 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
             return;
         }
 
+        if (!target.hasPermission("referrals.use")) {
+            messages.send(sender, "refused-target-cannot", "player", target.getName());
+            return;
+        }
         Verdict verdict = Rules.check(sender.getUniqueId().equals(target.getUniqueId()),
                 target.getStatistic(Statistic.PLAY_ONE_MINUTE), settings.maxPlayedTicks,
-                store.has(target.getUniqueId()), store.countBy(sender.getUniqueId()), settings.limit,
-                settings.blockSameAddress && sameAddress(sender, target));
+                store.has(target.getUniqueId()), sender.getStatistic(Statistic.PLAY_ONE_MINUTE), settings.minReferrerTicks,
+                store.countBy(sender.getUniqueId()), settings.limit, settings.blockSameAddress && sameAddress(sender, target));
         if (verdict != Verdict.OK) {
             messages.send(sender, "refused-" + verdict.name().toLowerCase(Locale.ROOT).replace('_', '-'),
-                    "player", target.getName(), "minutes", String.valueOf(settings.maxPlayedTicks / 1200), "limit", String.valueOf(settings.limit));
+                    "player", target.getName(), "minutes", String.valueOf(settings.maxPlayedTicks / 1200),
+                    "minutes-needed", String.valueOf(settings.minReferrerTicks / 1200), "limit", String.valueOf(settings.limit));
             return;
         }
 
@@ -218,10 +227,11 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
 
         // The rules are checked again: a lot can happen while a request waits.
         Verdict verdict = Rules.check(false, 0, settings.maxPlayedTicks, store.has(target.getUniqueId()),
+                sender.getStatistic(Statistic.PLAY_ONE_MINUTE), settings.minReferrerTicks,
                 store.countBy(sender.getUniqueId()), settings.limit, settings.blockSameAddress && sameAddress(sender, target));
         if (verdict != Verdict.OK) {
-            messages.send(target, "refused-" + verdict.name().toLowerCase(Locale.ROOT).replace('_', '-'),
-                    "player", sender.getName(), "minutes", String.valueOf(settings.maxPlayedTicks / 1200), "limit", String.valueOf(settings.limit));
+            messages.send(target, "accept-refused-target");
+            messages.send(sender, "accept-refused-sender", "player", target.getName());
             return;
         }
 

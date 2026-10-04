@@ -44,6 +44,7 @@ when you change the rewards.
 
 - A player can be referred once, ever. The referral is written to `data.yml` before anyone is paid; if the write
   fails nobody is paid, so a restart can never pay the same referral twice.
+- A player must have played for `min-referrer-playtime-minutes` (30 by default) before they can refer anyone, so a brand new account cannot refer its own second account.
 - You cannot refer yourself, and (by default) not a player who connects from the same address as you.
 - One player can bring in at most `max-referrals-per-player` players (10 by default, 0 for no limit).
 - Requests have a cooldown, a limit per new player, and end when either player leaves or time runs out.
@@ -52,7 +53,7 @@ when you change the rewards.
 
 ## Config
 
-`config.yml`: extra command names, playtime limit, request time, cooldown, limits, the same-address check and the reward commands.
+`config.yml`: extra command names, playtime limits, request time, cooldown, limits, the same-address check and the reward commands.
 `messages.yml`: every text, in MiniMessage or `&` codes. Referrals are kept in `data.yml`.
 
 ## Permissions
