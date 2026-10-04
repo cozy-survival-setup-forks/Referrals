@@ -1,0 +1,18 @@
+name: Referrals
+version: '${version}'
+main: dev.referrals.ReferralsPlugin
+api-version: '1.21'
+description: New players are referred by a friend and both get rewards
+commands:
+  referral:
+    description: Refer a new player, accept or deny a referral
+    aliases: [ref, referrals]
+    usage: /<command> <player> | accept <player> | deny <player>
+
+permissions:
+  referrals.use:
+    description: Send, accept and deny referrals
+    default: true
+  referrals.admin:
+    description: Look up, reset and reload
+    default: op

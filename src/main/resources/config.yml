@@ -1,0 +1,32 @@
+# Referrals. A player sends a referral to someone who just joined, the new player accepts, and both get rewards.
+
+# How new a player must be to be referred: minutes of playtime on the server.
+max-playtime-minutes: 5
+
+# Seconds the new player has to accept a request.
+request-seconds: 120
+
+# Seconds a player has to wait between two requests they send.
+send-cooldown-seconds: 10
+
+# Requests that can wait for the same new player at once.
+max-pending-requests: 5
+
+# The most players one player can bring in. 0 means no limit.
+max-referrals-per-player: 10
+
+# Two players that connect from the same address cannot refer each other (stops people referring their own accounts).
+block-same-address: true
+
+# Commands the console runs when a referral is accepted. %player% is the player who gets the reward and %other% is
+# the other one. Change them to the commands of your own economy, key and fly plugins.
+rewards:
+  referrer:
+    - "eco give %player% 2500"
+    - "crate givekey vote %player% 1"
+    - "tempfly add %player% 1m"
+  referred:
+    - "eco give %player% 5000"
+    - "crate givekey vote %player% 1"
+    - "tempfly add %player% 2m"
+    - "coins give %player% 10"

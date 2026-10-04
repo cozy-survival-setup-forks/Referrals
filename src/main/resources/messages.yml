@@ -1,0 +1,47 @@
+# Every text. MiniMessage or & codes. Placeholders are written like <player>. An empty text is not sent.
+prefix: "<#F5C542>Referrals <dark_gray>» <gray>"
+
+usage:
+  - "<#F5C542>/ref <player> <gray>- send a referral to a new player"
+  - "<#F5C542>/ref accept <player> <gray>- accept a referral"
+  - "<#F5C542>/ref deny <player> <gray>- deny a referral"
+usage-admin:
+  - "<#F5C542>/ref <player> <gray>- send a referral to a new player"
+  - "<#F5C542>/ref accept <player> <gray>- accept a referral"
+  - "<#F5C542>/ref deny <player> <gray>- deny a referral"
+  - "<#F5C542>/ref info <player> <gray>- who referred a player and how many they brought in"
+  - "<#F5C542>/ref reset <player> <gray>- let a player be referred again"
+  - "<#F5C542>/ref reload <gray>- reload config.yml and messages.yml"
+
+players-only: "<red>Only players can do that."
+no-permission: "<red>You can't do that."
+player-not-found: "<red>There is no player called <white><player> <red>online."
+
+refused-self: "<red>You can't refer yourself."
+refused-already-referred: "<red><white><player> <red>was already referred."
+refused-not-new: "<red><white><player> <red>has played for more than <white><minutes> minutes <red>already, referrals are only for new players."
+refused-limit-reached: "<red>You have brought in <white><limit> <red>players already, that is the most."
+refused-same-ip: "<red>You can't refer a player who connects from the same address as you."
+
+request-cooldown: "<red>Wait a moment before sending another referral."
+request-duplicate: "<red>You already sent a referral to <white><player><red>."
+request-target-full: "<red><white><player> <red>has a lot of requests waiting already, try again later."
+request-sent: "<white>Referral sent to <#F5C542><player><white>. They have <seconds> seconds to accept."
+request-received:
+  - "<#F5C542><player> <white>wants to refer you to the server!"
+  - "<click:run_command:'/ref accept <player>'><hover:show_text:'<green>Accept'><green>[Accept]</green></hover></click> <click:run_command:'/ref deny <player>'><hover:show_text:'<red>Deny'><red>[Deny]</red></hover></click> <gray>You have <seconds> seconds."
+request-expired: "<gray>Your referral to <white><player> <gray>ran out of time."
+no-request: "<red>There is no open referral from <white><player><red>."
+denied-you: "<gray>You denied the referral from <white><player><gray>."
+denied-them: "<white><player> <gray>denied your referral."
+
+accepted-referrer: "<green><player> accepted your referral! <white>You got <#F5C542>2,500 money, 1 vote key and 1 minute of temp fly<white>."
+accepted-referred: "<green>Welcome! <white><player> referred you. You got <#F5C542>5,000 money, 1 vote key, 2 minutes of temp fly and 10 coins<white>."
+save-failed: "<red>The referral could not be saved, so nobody was paid. Tell an admin."
+
+reloaded: "<green>Reloaded."
+reload-failed: "<red>A file is broken, nothing was changed. The console has the details."
+info-none: "<white><player> <gray>was not referred."
+info-referred: "<white><player> <gray>was referred by <white><referrer> <gray>on <white><date><gray>."
+info-count: "<white><player> <gray>has brought in <white><count> <gray>players."
+reset-done: "<green><player> can be referred again."
