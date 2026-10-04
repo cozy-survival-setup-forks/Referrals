@@ -14,6 +14,7 @@ final class Settings {
     final int maxPending;
     final int limit;
     final boolean blockSameAddress;
+    final List<String> aliases;
     final List<String> referrerCommands;
     final List<String> referredCommands;
 
@@ -24,8 +25,20 @@ final class Settings {
         maxPending = Math.max(1, Math.min(config.getInt("max-pending-requests", 5), 100));
         limit = Math.max(0, config.getInt("max-referrals-per-player", 10));
         blockSameAddress = config.getBoolean("block-same-address", true);
+        aliases = aliases(config.getStringList("command-aliases"));
         referrerCommands = commands(config.getStringList("rewards.referrer"));
         referredCommands = commands(config.getStringList("rewards.referred"));
+    }
+
+    /** The extra names of the command: lower case, no slash, letters, digits, - and _ only, no repeats, not "ref". */
+    static List<String> aliases(List<String> names) {
+        List<String> result = new ArrayList<>();
+        for (String name : names) {
+            String alias = name.trim().toLowerCase(java.util.Locale.ROOT);
+            if (alias.startsWith("/")) alias = alias.substring(1);
+            if (alias.matches("[a-z0-9_-]{1,32}") && !alias.equals("ref") && !result.contains(alias)) result.add(alias);
+        }
+        return List.copyOf(result);
     }
 
     private static List<String> commands(List<String> lines) {

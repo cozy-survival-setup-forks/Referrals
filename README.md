@@ -20,7 +20,7 @@ For Paper 1.21+.
 | `/ref reset <player>` | Admin: let a player be referred again |
 | `/ref reload` | Admin: reload `config.yml` and `messages.yml` |
 
-`/referral` and `/referrals` work too.
+Want other names for the command? Add them to `command-aliases` in `config.yml`, for example `[referral, invite]`, and run `/ref reload`.
 
 ## Rewards
 
@@ -52,7 +52,7 @@ when you change the rewards.
 
 ## Config
 
-`config.yml`: playtime limit, request time, cooldown, limits, the same-address check and the reward commands.
+`config.yml`: extra command names, playtime limit, request time, cooldown, limits, the same-address check and the reward commands.
 `messages.yml`: every text, in MiniMessage or `&` codes. Referrals are kept in `data.yml`.
 
 ## Permissions

@@ -38,6 +38,7 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
     private Messages messages;
     private Store store;
     private final Requests requests = new Requests();
+    private final List<Command> aliasCommands = new ArrayList<>();
 
     @Override
     public void onEnable() {
@@ -66,11 +67,12 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
         }
 
         getServer().getPluginManager().registerEvents(this, this);
-        var command = getCommand("referral");
+        var command = getCommand("ref");
         if (command != null) {
             command.setExecutor(this);
             command.setTabCompleter(this);
         }
+        registerAliases();
         Bukkit.getScheduler().runTaskTimer(this, this::sweep, 100L, 100L);
 
         Metrics.start(this);
@@ -80,6 +82,43 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
     @Override
     public void onDisable() {
         Bukkit.getScheduler().cancelTasks(this);
+        unregisterAliases();
+    }
+
+    /** The command names from command-aliases, each one a command of its own that does what /ref does. */
+    private void registerAliases() {
+        for (String alias : settings.aliases) {
+            Command extra = new Command(alias) {
+                @Override
+                public boolean execute(@NotNull CommandSender sender, @NotNull String label, @NotNull String[] args) {
+                    return onCommand(sender, this, label, args);
+                }
+
+                @Override
+                public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String label, @NotNull String[] args) {
+                    return onTabComplete(sender, this, label, args);
+                }
+            };
+            extra.setDescription("Same as /ref");
+            if (!Bukkit.getCommandMap().register(getName().toLowerCase(Locale.ROOT), extra)) {
+                // Another plugin owns that name; ours is only reachable as referrals:<name>.
+                getLogger().warning("command-aliases: /" + alias + " is already used by another command, so it is only available as /referrals:" + alias);
+            }
+            aliasCommands.add(extra);
+        }
+    }
+
+    private void unregisterAliases() {
+        var known = Bukkit.getCommandMap().getKnownCommands();
+        for (Command extra : aliasCommands) {
+            extra.unregister(Bukkit.getCommandMap());
+            known.values().removeIf(each -> each == extra);
+        }
+        aliasCommands.clear();
+    }
+
+    private void refreshCommands() {
+        for (Player player : Bukkit.getOnlinePlayers()) player.updateCommands();
     }
 
     /** Reads config.yml and messages.yml again. If one is broken the old settings stay. */
@@ -92,6 +131,9 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
             if (!messages.load()) return false;
             reloadConfig();
             settings = fresh;
+            unregisterAliases();
+            registerAliases();
+            refreshCommands();
             return true;
         } catch (IOException | InvalidConfigurationException e) {
             getLogger().severe("config.yml is broken, keeping the settings as they were: " + e.getMessage());

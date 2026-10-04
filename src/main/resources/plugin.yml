@@ -6,9 +6,8 @@ authors: [Groovified]
 description: New players are referred by a friend and both get rewards
 website: https://discord.gg/blockie
 commands:
-  referral:
+  ref:
     description: Refer a new player, accept or deny a referral
-    aliases: [ref, referrals]
     usage: /<command> <player> | accept <player> | deny <player>
 
 permissions:

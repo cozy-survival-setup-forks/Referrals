@@ -1,5 +1,9 @@
 # Referrals. A player sends a referral to someone who just joined, the new player accepts, and both get rewards.
 
+# Other names for /ref, without the slash. Changing this needs /ref reload.
+command-aliases: []
+# command-aliases: [referral, referrals, invite]
+
 # How new a player must be to be referred: minutes of playtime on the server.
 max-playtime-minutes: 5
 
