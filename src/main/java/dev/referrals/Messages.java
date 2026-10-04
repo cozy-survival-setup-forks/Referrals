@@ -98,6 +98,10 @@ public final class Messages {
 
     /** Sends a message with the prefix. An empty message is skipped, so any of them can be turned off. */
     public void send(CommandSender to, String key, String... pairs) {
+        if (file.isList(key)) {
+            for (String line : file.getStringList(key)) to.sendMessage(parse(line, pairs));
+            return;
+        }
         String message = text(key);
         if (message.isEmpty()) return;
         to.sendMessage(parse(text("prefix") + message, pairs));
