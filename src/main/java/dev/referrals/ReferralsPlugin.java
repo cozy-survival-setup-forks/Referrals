@@ -73,6 +73,7 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
         }
         Bukkit.getScheduler().runTaskTimer(this, this::sweep, 100L, 100L);
 
+        Metrics.start(this);
         Banner.print(this, "Thanks for bringing new players home.");
     }
 

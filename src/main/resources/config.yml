@@ -30,3 +30,9 @@ rewards:
     - "crate givekey vote %player% 1"
     - "tempfly add %player% 2m"
     - "coins give %player% 10"
+
+# Anonymous usage beacon: plugin name/version, server software/version and online/max player
+# counts, nothing else. Set to false to turn it off.
+metrics:
+  enabled: true
+  interval-minutes: 45
