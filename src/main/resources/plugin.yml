@@ -2,7 +2,9 @@ name: Referrals
 version: '${version}'
 main: dev.referrals.ReferralsPlugin
 api-version: '1.21'
+authors: [Groovified]
 description: New players are referred by a friend and both get rewards
+website: https://discord.gg/blockie
 commands:
   referral:
     description: Refer a new player, accept or deny a referral
