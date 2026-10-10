@@ -1,3 +1,4 @@
+lang-version: 1
 # Every text. MiniMessage or & codes. Placeholders are written like <player>. An empty text is not sent.
 prefix: "<#F5C542>Referrals <dark_gray>» <gray>"
 

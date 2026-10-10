@@ -2,6 +2,14 @@ package dev.referrals;
 
 import dev.referrals.Requests.Added;
 import dev.referrals.Rules.Verdict;
+import dev.referrals.safe.ConfigMigrator;
+import dev.referrals.safe.Doctor;
+import dev.referrals.safe.FileBackups;
+import dev.referrals.safe.Guard;
+import dev.referrals.safe.Health;
+import dev.referrals.safe.Journal;
+import dev.referrals.safe.Prep;
+import dev.referrals.safe.ServerId;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.Statistic;
@@ -19,6 +27,7 @@ import org.jetbrains.annotations.NotNull;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -32,7 +41,23 @@ import java.util.logging.Level;
 public final class ReferralsPlugin extends JavaPlugin implements Listener, TabExecutor {
 
     private static final List<String> SUBCOMMANDS = List.of("accept", "deny", "send");
-    private static final List<String> ADMIN_SUBCOMMANDS = List.of("info", "reset", "reload");
+    private static final List<String> ADMIN_SUBCOMMANDS = List.of("info", "reset", "reload", "doctor", "backup");
+
+    private static final int CONFIG_VERSION = 1;
+    private static final int LANG_VERSION = 1;
+
+    private final List<Prep.Spec> files = List.of(
+            new Prep.Spec("config.yml", "config-version", CONFIG_VERSION, Prep.configMigrator(CONFIG_VERSION), rules -> {
+                rules.range("max-playtime-minutes", 1, 525_600);
+                rules.range("min-referrer-playtime-minutes", 0, 525_600);
+                rules.range("request-seconds", 5, 86_400);
+                rules.range("send-cooldown-seconds", 0, 3600);
+                rules.range("max-pending-requests", 1, 100);
+                rules.range("max-referrals-per-player", 0, 1_000_000);
+                rules.range("backup.interval-hours", 1, 168);
+                rules.range("backup.keep", 1, 90);
+            }),
+            new Prep.Spec("messages.yml", "lang-version", LANG_VERSION, new ConfigMigrator("lang-version", LANG_VERSION), null));
 
     private Settings settings;
     private Messages messages;
@@ -52,6 +77,9 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
 
     private void enableInner() {
         saveDefaultConfig();
+        Health.storage("SQLite referrals.db for who was referred by whom; YAML for config.yml and messages.yml");
+        Prep.startup(this, files);
+        reloadConfig();
         settings = new Settings(getConfig());
         messages = new Messages(this);
         if (!messages.load()) {
@@ -60,12 +88,14 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
             return;
         }
 
-        store = new Store(new File(getDataFolder(), "data.yml"));
+        store = new Store(new File(getDataFolder(), "data.yml"), getLogger());
         try {
-            store.load();
-        } catch (IOException | InvalidConfigurationException e) {
-            // Stopping keeps the broken file as it is, so it can be fixed by hand. Carrying on would overwrite it.
-            getLogger().log(Level.SEVERE, "data.yml is broken, disabling Referrals so it is not overwritten. Fix or move the file.", e);
+            store.open(backupKeep());
+        } catch (IOException | SQLException | InvalidConfigurationException e) {
+            // Stopping keeps the data as it is, so it can be fixed by hand. Carrying on empty would let every referral be paid again.
+            getLogger().log(Level.SEVERE, "The referral data cannot be used, so Referrals is switching itself off and nothing is reset or paid twice: " + e.getMessage());
+            Health.failure("referral data could not be opened: " + e.getMessage());
+            store = null;
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
@@ -79,7 +109,9 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
         registerAliases();
         Bukkit.getScheduler().runTaskTimer(this, this::sweep, 100L, 100L);
 
-        Metrics.start(this);
+        boolean beacon = getConfig().getBoolean("metrics.enabled", true);
+        Metrics.start(this, ServerId.resolve(getDataFolder().toPath(), store.serverIdSlot(), beacon, getLogger()));
+        scheduleBackups();
         Banner.print(this, "Thanks for bringing new players home.");
     }
 
@@ -87,6 +119,46 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
     public void onDisable() {
         Bukkit.getScheduler().cancelTasks(this);
         unregisterAliases();
+        if (store != null) store.close();
+    }
+
+    private int backupKeep() {
+        return Math.max(1, Math.min(90, getConfig().getInt("backup.keep", 7)));
+    }
+
+    private org.bukkit.scheduler.BukkitTask backupTask;
+
+    /** (Re)starts the timer of the database copies from backup.interval-hours and backup.keep. */
+    private void scheduleBackups() {
+        int hours = Math.max(1, Math.min(168, getConfig().getInt("backup.interval-hours", 6)));
+        store.configureBackups(backupKeep());
+        if (backupTask != null) backupTask.cancel();
+        backupTask = Bukkit.getScheduler().runTaskTimerAsynchronously(this, store::backup, 20L * 60, hours * 3600L * 20L);
+    }
+
+    /** The text of /ref doctor. */
+    private List<String> doctor() {
+        List<String> extra = new ArrayList<>(Prep.versionLines(this, files));
+        extra.add("Referral database: referrals.db, schema " + store.schemaVersion() + " (this plugin writes " + Store.SCHEMA + ")");
+        extra.add("Stored referrals: " + store.count());
+        String newest = store.newestBackup();
+        extra.add("Newest database copy on disk: " + (newest == null ? "none yet" : newest));
+        extra.add("Pending writes: 0 (every referral is written as it happens)");
+        try {
+            List<String> unknown = store.journal() == null ? List.of() : store.journal().unknown();
+            extra.add("Rewards that may or may not have been paid (not repeated): " + unknown.size());
+            unknown.forEach(line -> extra.add("  " + line + "   (after checking: /ref doctor resolve <id>)"));
+        } catch (SQLException e) {
+            extra.add("Reward record could not be read: " + e.getMessage());
+        }
+        return Doctor.report(getName(), getPluginMeta().getVersion(), extra);
+    }
+
+    /** /ref backup now: a checked copy of the database and of the settings files. */
+    private boolean backupNow() {
+        boolean database = store.backup();
+        boolean settingsFiles = FileBackups.snapshot(getDataFolder().toPath(), new ArrayList<>(Prep.fileNames(files)), 5, getLogger());
+        return database && settingsFiles;
     }
 
     /** The command names from command-aliases, each one a command of its own that does what /ref does. */
@@ -127,6 +199,11 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
 
     /** Reads config.yml and messages.yml again. If one is broken the old settings stay. */
     private boolean reload() {
+        List<Guard.Problem> problems = Prep.validate(this, files);
+        if (!problems.isEmpty()) {
+            Prep.logRejected(this, problems);
+            return false;
+        }
         try {
             File file = new File(getDataFolder(), "config.yml");
             var loaded = new org.bukkit.configuration.file.YamlConfiguration();
@@ -134,6 +211,7 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
             Settings fresh = new Settings(loaded);
             if (!messages.load()) return false;
             reloadConfig();
+            scheduleBackups();
             settings = fresh;
             unregisterAliases();
             registerAliases();
@@ -153,7 +231,7 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
         switch (first) {
             case "accept", "deny" -> answer(sender, args, first.equals("accept"));
             case "send" -> send(sender, args.length > 1 ? args[1] : null);
-            case "info", "reset", "reload" -> admin(sender, first, args);
+            case "info", "reset", "reload", "doctor", "backup" -> admin(sender, first, args);
             case "" -> messages.send(sender, sender.hasPermission("referrals.admin") ? "usage-admin" : "usage");
             default -> send(sender, args[0]);
         }
@@ -235,9 +313,24 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
             return;
         }
 
-        // Saved first: if it cannot be written, nobody is paid, so a restart can never pay the same referral twice.
+        // Written down and saved first: if it cannot be written, nobody is paid, so a restart can never pay the same
+        // referral twice, and a payout that was cut short is listed for a person to check.
+        Journal journal = store.journal();
+        String record = null;
+        try {
+            if (journal != null) {
+                record = journal.begin("referral-reward", "referrer=" + sender.getName() + " (" + sender.getUniqueId() + ") referred="
+                        + target.getName() + " (" + target.getUniqueId() + ")");
+            }
+        } catch (SQLException e) {
+            getLogger().severe("The reward record could not be written, so the referral of " + target.getName() + " by " + sender.getName() + " was not paid: " + e.getMessage());
+            messages.send(target, "save-failed");
+            messages.send(sender, "save-failed");
+            return;
+        }
         if (!store.add(target.getUniqueId(), new Store.Entry(sender.getUniqueId(), sender.getName(), target.getName(), now))) {
-            getLogger().severe("Could not write data.yml, so the referral of " + target.getName() + " by " + sender.getName() + " was not paid.");
+            finishRecord(journal, record, "referral could not be saved", false);
+            getLogger().severe("Could not write referrals.db, so the referral of " + target.getName() + " by " + sender.getName() + " was not paid.");
             messages.send(target, "save-failed");
             messages.send(sender, "save-failed");
             return;
@@ -246,10 +339,21 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
 
         run(settings.referrerCommands, sender, target);
         run(settings.referredCommands, target, sender);
+        finishRecord(journal, record, null, true);
         messages.send(sender, "accepted-referrer", "player", target.getName());
         messages.send(target, "accepted-referred", "player", sender.getName());
         sender.playSound(sender.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
         target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
+    }
+
+    private void finishRecord(Journal journal, String record, String reason, boolean ok) {
+        if (journal == null || record == null) return;
+        try {
+            if (ok) journal.succeeded(record);
+            else journal.failed(record, reason);
+        } catch (SQLException e) {
+            getLogger().warning("The reward record could not be finished: " + e.getMessage());
+        }
     }
 
     /** Runs reward commands from the console. One that fails does not stop the others. */
@@ -277,6 +381,25 @@ public final class ReferralsPlugin extends JavaPlugin implements Listener, TabEx
         }
         if (what.equals("reload")) {
             messages.send(sender, reload() ? "reloaded" : "reload-failed");
+            return;
+        }
+        if (what.equals("doctor")) {
+            if (args.length >= 3 && args[1].equalsIgnoreCase("resolve")) {
+                boolean done = false;
+                try {
+                    done = store.journal() != null && store.journal().resolve(args[2]);
+                } catch (SQLException e) {
+                    getLogger().severe("Could not update the reward record: " + e.getMessage());
+                }
+                sender.sendPlainMessage(done ? "Marked as checked." : "No unfinished reward has that id.");
+            } else {
+                doctor().forEach(sender::sendPlainMessage);
+            }
+            return;
+        }
+        if (what.equals("backup")) {
+            if (args.length < 2 || !args[1].equalsIgnoreCase("now")) sender.sendPlainMessage("Use /ref backup now");
+            else sender.sendPlainMessage(backupNow() ? "Backup made and checked." : "The backup FAILED, see the console.");
             return;
         }
         String name = args.length > 1 ? args[1] : null;

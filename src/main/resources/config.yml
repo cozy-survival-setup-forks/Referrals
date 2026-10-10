@@ -1,3 +1,4 @@
+config-version: 1
 # Referrals. A player sends a referral to someone who just joined, the new player accepts, and both get rewards.
 
 # Other names for /ref, without the slash. Changing this needs /ref reload.
@@ -39,8 +40,15 @@ rewards:
     - "tempfly add %player% 2m"
     - "coins give %player% 10"
 
+# Copies of the referral database (referrals.db), made while the server runs and checked before older ones are removed.
+# They are in the "backups" folder. /ref backup now makes one at once.
+backup:
+  # Hours between copies.
+  interval-hours: 6
+  # How many copies to keep.
+  keep: 7
+
 # Anonymous usage beacon: plugin name/version, server software/version and online/max player
 # counts, nothing else. Set to false to turn it off.
 metrics:
   enabled: true
-  interval-minutes: 45
